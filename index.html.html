@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101722">
+<title>iPad 即時翻譯字幕（單機網頁版）</title>
+<style>
+:root{color-scheme:dark;--panel:#1b2636;--line:#344256;--muted:#a8b5c7;--accent:#a9ccff}
+*{box-sizing:border-box}
+body{margin:0;background:#101722;color:#f4f7fb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:760px;margin:auto;padding:18px 14px 260px}
+h1{font-size:1.4rem;margin:4px 0 8px}
+p{line-height:1.5}
+.note{color:var(--muted);font-size:.91rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin:12px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,select{font:inherit}
+button{border:0;border-radius:11px;padding:11px 14px;background:#d7e7ff;color:#142238;font-weight:650}
+button.secondary{background:#354459;color:#f4f7fb}
+button:disabled{opacity:.45}
+label{display:block;color:var(--muted);font-size:.88rem;margin:10px 0 6px}
+select{width:100%;padding:10px;border-radius:10px;background:#111a27;color:#fff;border:1px solid #4a5a70}
+input[type=range]{width:100%}
+.status{min-height:1.5em;color:#b9d6ff;font-size:.9rem}
+.tag{color:var(--accent);font-size:.78rem;font-weight:700;letter-spacing:.04em}
+.original,.translation{overflow-wrap:anywhere;line-height:1.55;margin:6px 0 12px}
+.original{color:#d7dfeb}
+.translation{font-size:1.2rem}
+#float{position:fixed;z-index:5;left:12px;right:12px;bottom:12px;max-width:760px;margin:auto;background:rgba(10,15,23,.9);backdrop-filter:blur(14px);border:1px solid #637187;border-radius:16px;box-shadow:0 12px 42px #0008;touch-action:pan-y}
+#drag{padding:10px 14px;border-bottom:1px solid #ffffff20;font-size:.82rem;user-select:none;touch-action:none;cursor:grab;display:flex;justify-content:space-between}
+#floatbody{padding:12px 14px 16px}
+#fo{font-size:.95rem;line-height:1.45;overflow-wrap:anywhere;color:#d7dfeb}
+#ft{font-size:1.2rem;line-height:1.5;margin-top:7px;overflow-wrap:anywhere}
+.hide{display:none!important}
+.small{font-size:.82rem;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+<main>
+<h1>即時影音翻譯字幕</h1>
+<p class="note">iPad 單機網頁原型：使用 iPad 麥克風聽取附近播放的電腦／電視聲音，將辨識文字翻譯成繁體中文。無須安裝 Python 或自備電腦來執行程式；但必須用支援語音辨識的瀏覽器，且本頁需要網路。</p>
+<section class="card">
+<div class="row">
+<button id="start">開始辨識</button>
+<button id="stop" class="secondary" disabled>停止</button>
+<button id="clear" class="secondary">清除字幕</button>
+</div>
+<div id="status" class="status">尚未開始。請先選擇原文語言。</div>
+<p class="small">注意：一般網頁不能直接讀取另一個 App 的內部音訊；請讓聲音從喇叭播放，讓 iPad 麥克風收音。</p>
+</section>
+<section class="card">
+<strong>語言與字幕設定</strong>
+<label for="lang">原文語言（瀏覽器語音辨識通常需要指定）</label>
+<select id="lang">
+<option value="en-US">英文 English</option><option value="ja-JP">日文 日本語</option>
+<option value="ko-KR">韓文 한국어</option><option value="zh-CN">簡體中文</option>
+<option value="zh-TW">繁體中文</option><option value="fr-FR">法文 Français</option>
+<option value="de-DE">德文 Deutsch</option><option value="es-ES">西班牙文 Español</option>
+<option value="it-IT">義大利文 Italiano</option><option value="pt-PT">葡萄牙文 Português</option>
+<option value="ru-RU">俄文 Русский</option>
+</select>
+<label for="opacity">字幕背景不透明度：<span id="opv">90</span>%</label>
+<input id="opacity" type="range" min="35" max="100" value="90">
+<label for="size">繁中字體大小：<span id="szv">19</span> px</label>
+<input id="size" type="range" min="14" max="30" value="19">
+<div class="row" style="margin-top:12px">
+<button id="toggle" class="secondary">隱藏／顯示字幕</button>
+<button id="reset" class="secondary">重設位置</button>
+</div>
+</section>
+<section class="card">
+<div class="tag">原文辨識</div><div id="original" class="original">等待語音……</div>
+<div class="tag">繁體中文翻譯</div><div id="translation" class="translation">翻譯會顯示在這裡。</div>
+</section>
+<section class="card">
+<strong>限制說明</strong>
+<ul class="small">
+<li>這是單一 HTML 網頁，不需要後端或 API 金鑰；語音辨識由瀏覽器／其語音服務提供，翻譯使用公開的 MyMemory 翻譯服務。</li>
+<li>免費翻譯服務有使用量、速度、可用性及隱私方面的限制，不適合機密內容；服務可能改變或暫時不可用。</li>
+<li>自動偵測原文語言不是所有瀏覽器都支援，因此此版本需要手動選擇語言。</li>
+<li>若瀏覽器沒有 SpeechRecognition 功能，本程式無法自行辨識語音；請改用支援該功能的瀏覽器／原生 App。</li>
+<li>字幕面板只能在本網頁內拖曳，不能覆蓋在 YouTube 或其他 App 上方。切換到背景後也可能停止辨識。</li>
+</ul>
+</section>
+</main>
+<div id="float">
+<div id="drag"><span>即時字幕 · 按住此處拖曳</span><span id="state">待機</span></div>
+<div id="floatbody"><div id="fo">原文會顯示在這裡。</div><div id="ft">繁體中文翻譯會顯示在這裡。</div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recognition=null, running=false, translationSeq=0;
+function status(s){$('status').textContent=s}
+function putOriginal(s){$('original').textContent=s;$('fo').textContent=s}
+function putTranslation(s){$('translation').textContent=s;$('ft').textContent=s}
+async function translate(text){
+  const seq=++translationSeq;
+  try{
+    const url='https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair='+encodeURIComponent($('lang').value+'|zh-TW');
+    const res=await fetch(url);
+    if(!res.ok) throw new Error('翻譯服務暫時無法使用');
+    const data=await res.json();
+    const out=data?.responseData?.translatedText;
+    if(seq===translationSeq && out) putTranslation(decodeEntities(out));
+    else if(seq===translationSeq) putTranslation('暫時沒有取得翻譯。');
+  }catch(e){if(seq===translationSeq)putTranslation('翻譯失敗，請檢查網路後重試。')}
+}
+function decodeEntities(s){const t=document.createElement('textarea');t.innerHTML=s;return t.value}
+function makeRecognition(){
+  if(!SR){status('此瀏覽器沒有提供語音辨識功能。請嘗試更新 iPadOS／Safari，或使用支援 Web Speech API 的瀏覽器。');return null}
+  const r=new SR();r.lang=$('lang').value;r.continuous=true;r.interimResults=true;r.maxAlternatives=1;
+  r.onstart=()=>{running=true;$('start').disabled=true;$('stop').disabled=false;$('state').textContent='收聽中';status('正在收聽。請讓 iPad 麥克風清楚收到影音聲音。')};
+  r.onresult=e=>{
+    let interim='', finalText='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalText+=t; else interim+=t;
+    }
+    const shown=(finalText||interim).trim();
+    if(shown){putOriginal(shown);if(finalText.trim())translate(finalText.trim())}
+  };
+  r.onerror=e=>{status('語音辨識錯誤：'+e.error+'。請確認麥克風權限、網路及語言設定。')};
+  r.onend=()=>{if(running){try{r.start()}catch(e){}}else{$('state').textContent='已停止'}};
+  return r;
+}
+$('start').onclick=()=>{
+ if(!SR){makeRecognition();return}
+ try{recognition=makeRecognition();if(recognition)recognition.start()}
+ catch(e){status('無法啟動辨識：'+e.message)}
+};
+$('stop').onclick=()=>{running=false;if(recognition){try{recognition.stop()}catch(e){}}$('start').disabled=false;$('stop').disabled=true;$('state').textContent='已停止';status('已停止辨識。')};
+$('clear').onclick=()=>{putOriginal('等待語音……');putTranslation('翻譯會顯示在這裡。')};
+$('lang').onchange=()=>{if(running){$('stop').click();status('語言已變更，請再次按「開始辨識」。')}};
+$('opacity').oninput=()=>{$('opv').textContent=$('opacity').value;$('float').style.background=`rgba(10,15,23,${Number($('opacity').value)/100})`};
+$('size').oninput=()=>{$('szv').textContent=$('size').value;$('ft').style.fontSize=$('size').value+'px'};
+$('toggle').onclick=()=>$('float').classList.toggle('hide');
+$('reset').onclick=()=>{$('float').style.left='12px';$('float').style.right='12px';$('float').style.top='';$('float').style.bottom='12px'};
+const panel=$('float'),bar=$('drag');let drag=false,sx=0,sy=0,ox=0,oy=0;
+bar.addEventListener('pointerdown',e=>{drag=true;bar.setPointerCapture(e.pointerId);let r=panel.getBoundingClientRect();sx=e.clientX;sy=e.clientY;ox=r.left;oy=r.top;panel.style.left=r.left+'px';panel.style.top=r.top+'px';panel.style.right='auto';panel.style.bottom='auto'});
+bar.addEventListener('pointermove',e=>{if(!drag)return;let x=Math.max(0,Math.min(innerWidth-panel.offsetWidth,ox+e.clientX-sx));let y=Math.max(0,Math.min(innerHeight-panel.offsetHeight,oy+e.clientY-sy));panel.style.left=x+'px';panel.style.top=y+'px'});
+bar.addEventListener('pointerup',()=>drag=false);bar.addEventListener('pointercancel',()=>drag=false);
+</script>
+</body>
+</html>
